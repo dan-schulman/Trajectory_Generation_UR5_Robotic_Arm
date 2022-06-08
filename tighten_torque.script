@@ -1,0 +1,47 @@
+def tighten_torque(torqueLimit, writst3_StartAngle, wrist3_EndAngle, jointAccel, jointSpeed, num_checkTorque, gripperForce, gripperSpeed, gripperOpen): #In this function, torque limit = max torque to stop turning at, wrist3_StartAngle is angle to start spinning at, wrist3_EndAngle is angle to stop turning at, gripperForce and gripperSpeed are Force and Speed settings of gripper, gripperOpen is how much to open the gripper 
+	#Get the current joint angle positions
+	joint_pos = get_actual_joint_positions()
+	#Set jointAngle[5] (wrist3) to startAngle 
+	joint_pos[5] = writst3_StartAngle
+
+	global joint_inc = (wrist3_EndAngle - writst3_StartAngle) / num_checkTorque 
+    if joint_inc<0:
+        joint_inc = -joint_inc
+    end
+    
+	global q = 0
+	
+	#Gripper Settings
+    	rq_set_speed_norm(gripperForce) #0 - 100
+    	rq_set_force_norm(gripperSpeed) #0 - 100
+	
+	#screw based on torque
+    joint_torques = get_joint_torques()
+	joint_torques[5] = 0
+	while norm(joint_torques[5]) < torqueLimit:
+		#Move to beginning turn position
+		joint_pos[5] = writst3_StartAngle
+		movej(joint_pos, jointAccel, jointSpeed)
+		#Close the gripper
+		rq_move_and_wait_norm(100)
+		q = 0
+		while q < num_checkTorque:
+			#Move to end of twist
+			joint_pos[5] = joint_pos[5] + joint_inc
+			movej(joint_pos, jointAccel, jointSpeed)
+			#get joint torques
+			joint_torques = get_joint_torques()
+			if norm(joint_torques[5]) > torqueLimit:
+				break
+			end
+			q = q+1
+		end
+		#open gripper
+		rq_move_and_wait_norm(gripperOpen)
+        
+        set_standard_digital_out(0,True)
+        set_standard_digital_out(2,False)
+        sleep(0.5)
+        set_standard_digital_out(0,False)
+	end
+end
